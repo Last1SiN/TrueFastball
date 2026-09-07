@@ -69,7 +69,6 @@ To update TrueFastball, replace the existing `TrueFastball.sdkmod` with the newe
 
 - Fastball scope: the damage source patch is attached only to `Part_GM_Aug_Fastball`.
 - Projectile behavior: BL3 Fastball speed, gravity and trajectory are intentionally unchanged.
-- Co-op support: **ClientSide**.
 - License: **GPL-3.0**
 
 ## Changelog
