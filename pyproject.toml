@@ -3,7 +3,7 @@ name = "TrueFastball"
 version = "1.0"
 description = "Borderlands 2-style Fastball for Borderlands 3: higher damage and a faster throw animation without changing BL3 projectile speed or trajectory."
 authors = [
-    { name = "Sol (ChatGPT, GPT-5.6 Sol)" }
+    { name = "Sol / GPT-5.6 Sol" }
 ]
 maintainers = [
     { name = "Last1SiN" }
