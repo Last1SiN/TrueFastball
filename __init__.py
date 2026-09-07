@@ -581,5 +581,4 @@ mod = build_mod(
     on_enable=_on_enable,
     on_disable=_on_disable,
 )
-mod.coop_support = None  # type: ignore[assignment]
 _sanitize_loaded_settings(mod)
