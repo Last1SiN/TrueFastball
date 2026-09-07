@@ -1,7 +1,7 @@
 [project]
 name = "TrueFastball"
-version = "1.0"
-description = "Borderlands 2-style Fastball for Borderlands 3: higher damage and a faster throw animation without changing BL3 projectile speed or trajectory."
+version = "1.1"
+description = "Borderlands 2-style Fastball for Borderlands 3: higher card-accurate damage and a faster throw animation without changing BL3 projectile speed or trajectory."
 authors = [
     { name = "Sol / GPT-5.6 Sol" }
 ]
@@ -14,7 +14,7 @@ Repository = "https://github.com/Last1SiN/TrueFastball"
 
 [tool.sdkmod]
 name = "TrueFastball"
-version = "1.0"
+version = "1.1"
 license = { name = "GPL3", url = "https://choosealicense.com/licenses/gpl-3.0/" }
 download = "https://github.com/Last1SiN/TrueFastball/releases/latest/download/TrueFastball.sdkmod"
 coop_support = "ClientSide"
