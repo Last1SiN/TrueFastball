@@ -66,7 +66,6 @@ To update TrueFastball, replace the existing `TrueFastball.sdkmod` with the newe
 
 - Fastball scope: damage modification is gated to the actual Fastball projectile delivery.
 - Projectile behavior: BL3 Fastball speed, gravity and trajectory are intentionally unchanged.
-- Co-op support: **Unknown** — client-without-host-mod behavior has not yet been validated.
 - License: **GPL-3.0**
 
 ## Credits
