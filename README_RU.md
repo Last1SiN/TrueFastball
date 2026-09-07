@@ -1,35 +1,28 @@
 # TrueFastball
 
-**Мод PythonSDK / Oak для Borderlands 3**
+[English](README.md) | [Русский](README_RU.md)
 
-Текущий релиз: **v1.0**
+TrueFastball делает Fastball в Borderlands 3 ближе по ощущению к версии из Borderlands 2: повышает урон и делает бросок отзывчивее, намеренно сохраняя штатную скорость полёта и траекторию Fastball из BL3.
 
-> Готовые к установке `.sdkmod` публикуются в разделе **Releases**.  
-> Файлы в репозитории являются исходниками мода.
-
----
-
-TrueFastball делает Fastball в Borderlands 3 ближе по ощущению к версии из Borderlands 2: повышает урон и ускоряет анимацию броска, но намеренно сохраняет штатную скорость полёта и траекторию Fastball из BL3.
-
-Мод работает только с Fastball. Он умножает уже рассчитанный runtime `GrenadeDamage`, сохраняя штатное масштабирование по уровню и Mayhem, и временно ускоряет протестированную анимацию броска только во время броска Fastball.
+Мод умножает уже рассчитанный runtime `GrenadeDamage`, сохраняя штатное масштабирование по уровню и Mayhem, и временно ускоряет протестированную анимацию броска только во время броска Fastball.
 
 ## Возможности
 
-- Изменяет урон только у фактического Fastball delivery.
-- Значение **Fastball Damage Multiplier** по умолчанию: `2.56`.
+- Множитель урона применяется только к гранатам Fastball.
+- **Fastball Damage Multiplier** по умолчанию: `2.56`.
 - Умножает runtime `GrenadeDamage`, а не записывает абсолютное значение урона.
-- Сохраняет штатное масштабирование урона по уровню и Mayhem.
-- Значение **Throw Animation RateScale** по умолчанию: `2.0`.
+- Сохраняет штатное масштабирование по уровню и Mayhem.
+- Обновляет значение Damage на карточке Fastball в соответствии с активным множителем.
+- **Throw Animation RateScale** по умолчанию: `2.0`.
 - После завершения конкретного grenade action восстанавливает временно изменённый RateScale анимации.
-- Не изменяет скорость полёта Fastball.
-- Не изменяет gravity, upward velocity или траекторию снаряда.
-- Выводит обе настройки релиза в Mod Menu.
-- Проверяет вручную изменённые или некорректные сохранённые настройки перед использованием.
-- При нормальной работе мод не засоряет игровой лог; записываются только ошибки.
+- Не изменяет скорость полёта Fastball, gravity, upward velocity или траекторию.
+- Выводит обе настройки в Mod Menu.
+- Проверяет вручную изменённые или некорректные сохранённые значения перед использованием.
+- При обычной работе пишет в лог только ошибки.
 
 ## Настройка
 
-Протестированные значения по умолчанию:
+Значения по умолчанию:
 
 - **Fastball Damage Multiplier:** `2.56`
 - **Throw Animation RateScale:** `2.0`
@@ -41,45 +34,35 @@ TrueFastball делает Fastball в Borderlands 3 ближе по ощущен
 
 Настройки доступны через **MODS -> TrueFastball -> Options**.
 
-Текущее ускорение throw-animation через RateScale использует протестированные animation assets **FL4K / Beastmaster**. Изменение урона Fastball от этих animation assets не зависит.
-
-TrueFastball намеренно не меняет штатную скорость полёта и траекторию Fastball в Borderlands 3.
+Текущее ускорение throw-animation использует протестированные animation assets **FL4K / Beastmaster**. Изменение урона от этих animation assets не зависит.
 
 ## Требования
 
-- Borderlands 3.
-- [BL3 PythonSDK / Oak Mod Manager v1.11+ — актуальный стабильный релиз](https://github.com/bl-sdk/oak-mod-manager/releases/latest).
-- [Официальная инструкция по установке BL3 SDK](https://bl-sdk.github.io/oak-mod-db/).
+- Borderlands 3
+- [BL3 PythonSDK / Oak Mod Manager](https://github.com/bl-sdk/oak-mod-manager/releases/latest)
 
-Oak Mod Manager v1.11 уже включает Mods Base 1.12, BL3 Mod Menu 1.8, Console Mod Menu 1.6, Keybinds 2.6, pyunrealsdk 1.10.0, UI Utils 1.4 и unrealsdk 3.2.0. При использовании этой или более новой совместимой версии Oak отдельно скачивать эти компоненты обычно не нужно.
+Для установки и обновления SDK используйте [официальную инструкцию BL3 SDK / Oak](https://bl-sdk.github.io/oak-mod-db/).
 
-## Установка
+## Установка мода
 
-1. **Полностью закройте Borderlands 3.**
-2. Если BL3 PythonSDK / Oak ещё не установлен или его нужно обновить, откройте [актуальный стабильный релиз Oak Mod Manager](https://github.com/bl-sdk/oak-mod-manager/releases/latest).
-3. В разделе **Assets** скачайте именно **`bl3-sdk.zip`**, а не архивы `Source code`.
-4. Найдите корневую папку Borderlands 3. В Steam: **Библиотека -> ПКМ по Borderlands 3 -> Управление -> Просмотреть локальные файлы**.
-5. Распакуйте содержимое `bl3-sdk.zip` прямо в корневую папку Borderlands 3, согласившись на объединение папок/файлов и замену файлов при запросе. Полная процедура, включая Proton/Linux, находится в [официальной инструкции BL3 SDK](https://bl-sdk.github.io/oak-mod-db/).
-6. Один раз запустите Borderlands 3 и убедитесь, что в главном меню появился пункт **MODS**.
-7. Скачайте актуальный релиз TrueFastball.
-8. Полностью закройте игру и скопируйте `TrueFastball.sdkmod` **не распаковывая** в:
+1. Установите или обновите BL3 PythonSDK / Oak по официальной инструкции выше.
+2. Скачайте `TrueFastball.sdkmod` из [GitHub Releases](https://github.com/Last1SiN/TrueFastball/releases/latest).
+3. При полностью закрытой Borderlands 3 скопируйте `.sdkmod` целиком в `Borderlands 3\sdk_mods\`. Сам `.sdkmod` распаковывать не нужно.
+4. Удалите старые Fastball test/probe-сборки, чтобы одновременно загружалась только одна runtime-версия мода для Fastball.
+5. Запустите игру, откройте **MODS -> TrueFastball**, включите мод и при необходимости настройте оба параметра через **Options**.
 
-   `Borderlands 3\sdk_mods\`
-
-9. Удалите старые Fastball probe/test-сборки, чтобы одновременно загружалась только одна runtime-версия мода для Fastball.
-10. Запустите/перезапустите Borderlands 3, откройте **MODS -> TrueFastball**, включите мод и откройте **Options** для настройки двух параметров при необходимости.
-
-Для обновления TrueFastball замените существующий `TrueFastball.sdkmod` новой версией и перезапустите игру.
+Для обновления замените существующий `.sdkmod` новым файлом и перезапустите игру.
 
 ## Совместимость и лицензия
 
-- Fastball scope: изменение урона применяется только к фактическому Fastball projectile delivery.
-- Projectile behavior: штатные скорость, gravity и траектория Fastball из BL3 намеренно не изменяются.
-- Персонажи: изменение урона общее; текущее ускорение throw-animation использует протестированные assets **FL4K / Beastmaster**.
+- Множитель урона применяется только к гранатам Fastball.
+- Штатные скорость полёта, gravity и траектория Fastball из Borderlands 3 намеренно не изменяются.
+- Кооператив: **Unknown** — сценарий, где мод установлен только у клиента, а у хоста его нет, пока не проверен.
 - Лицензия: **GPL-3.0**
 
 ## Credits
 
-- **Development:** Sol / GPT-5.6 Sol
-- **Design, testing & QA:** Last1SiN
-- **BL3 PythonSDK / Oak Mod Manager:** создан [apple1417](https://github.com/apple1417) при участии проекта и контрибьюторов [BL-SDK](https://github.com/bl-sdk).
+**Development:** Sol / GPT-5.6 Sol  
+**Design, testing & QA:** Last1SiN
+
+**BL3 PythonSDK / Oak Mod Manager:** создан [apple1417](https://github.com/apple1417) при участии проекта и контрибьюторов [BL-SDK](https://github.com/bl-sdk).
