@@ -67,7 +67,7 @@ To update TrueFastball, replace the existing `TrueFastball.sdkmod` with the newe
 - Fastball scope: damage modification is gated to the actual Fastball projectile delivery.
 - Projectile behavior: BL3 Fastball speed, gravity and trajectory are intentionally unchanged.
 - Character scope: damage behavior is general; the current throw-animation acceleration targets the tested **FL4K / Beastmaster** grenade animation assets.
-- Co-op behavior has not been formally validated for this release.
+- Co-op support: **ClientSide**.
 - License: **GPL-3.0**
 
 ## Credits
