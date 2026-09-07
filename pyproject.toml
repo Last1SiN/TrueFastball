@@ -17,5 +17,4 @@ name = "TrueFastball"
 version = "1.0"
 license = { name = "GPL3", url = "https://choosealicense.com/licenses/gpl-3.0/" }
 download = "https://github.com/Last1SiN/TrueFastball/releases/latest/download/TrueFastball.sdkmod"
-coop_support = "Unknown"
 supported_games = ["BL3"]
