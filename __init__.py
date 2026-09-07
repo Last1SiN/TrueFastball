@@ -15,7 +15,14 @@ FASTBALL_AUG = (
     "/Game/Gear/GrenadeMods/_Design/_Unique/Fastball/Parts/"
     "Part_GM_Aug_Fastball.Part_GM_Aug_Fastball"
 )
-FASTBALL_DELIVERY_TOKEN = "BP_GM_Delivery_Fastball"
+FASTBALL_PART_PACKAGE = (
+    "/Game/Gear/GrenadeMods/_Design/_Unique/Fastball/Parts/"
+    "Part_GM_Aug_Fastball"
+)
+FASTBALL_DAMAGE_ATTRIBUTE = (
+    "/Game/Gear/GrenadeMods/_Design/Attributes/"
+    "Att_GrenadeMod_Damage.Att_GrenadeMod_Damage"
+)
 
 ACTION_BEGIN = (
     "/Game/PlayerCharacters/_Shared/_Design/GrenadeThrow/"
@@ -46,46 +53,6 @@ RATE_DEFAULT = 2.0
 RATE_MIN = 1.0
 RATE_MAX = 5.0
 
-damage_option = SliderOption(
-    "damage_multiplier",
-    DAMAGE_DEFAULT,
-    DAMAGE_MIN,
-    DAMAGE_MAX,
-    0.01,
-    is_integer=False,
-    display_name="Fastball Damage Multiplier",
-    description=(
-        "Multiplies the Fastball's already level/Mayhem-scaled runtime damage. "
-        "Default: 2.56. Range: 1.00-4.00."
-    ),
-)
-
-throw_rate_option = SliderOption(
-    "throw_rate_scale",
-    RATE_DEFAULT,
-    RATE_MIN,
-    RATE_MAX,
-    0.1,
-    is_integer=False,
-    display_name="Throw Animation RateScale",
-    description=(
-        "Speed multiplier for the Fastball grenade throw animation. "
-        "Stock is 1.0. Default: 2.0. Range: 1.0-5.0."
-    ),
-)
-
-OPTIONS = (
-    damage_option,
-    throw_rate_option,
-)
-
-_pending_throw_owner: UObject | None = None
-
-_anim_assets: list[tuple[UObject, float]] = []
-_anim_cache_ready = False
-_throw_patch_owner: UObject | None = None
-_throw_patch_active = False
-
 
 def _error(message: str) -> None:
     logging.error(f"[TrueFastball] {message}")
@@ -98,15 +65,6 @@ def _path(obj: Any) -> str:
         return str(obj._path_name())
     except Exception:
         return "<unreadable-path>"
-
-
-def _class_name(obj: Any) -> str:
-    if obj is None:
-        return "<None>"
-    try:
-        return str(obj.Class.Name)
-    except Exception:
-        return type(obj).__name__
 
 
 def _validated(
@@ -135,6 +93,216 @@ def _validated(
         return maximum
 
     return value
+
+
+_damage_part: UObject | None = None
+_damage_effect_index: int | None = None
+_damage_original_scale: float | None = None
+_damage_owned_scale: float | None = None
+_damage_patch_active = False
+
+
+def _find_fastball_part() -> UObject | None:
+    global _damage_part
+
+    if _damage_part is not None and _path(_damage_part) == FASTBALL_AUG:
+        return _damage_part
+
+    try:
+        unrealsdk.load_package(FASTBALL_PART_PACKAGE)
+    except Exception as exc:
+        _error(f"could not load Fastball part package: {exc}")
+        return None
+
+    try:
+        part = unrealsdk.find_object("InventoryPartData", FASTBALL_AUG)
+    except Exception:
+        part = None
+
+    if part is None:
+        try:
+            for candidate in unrealsdk.find_all("InventoryPartData", exact=False):
+                if _path(candidate) == FASTBALL_AUG:
+                    part = candidate
+                    break
+        except Exception as exc:
+            _error(f"could not scan loaded inventory parts: {exc}")
+            return None
+
+    if part is None:
+        _error("could not locate Part_GM_Aug_Fastball after loading its package")
+        return None
+
+    _damage_part = part
+    return part
+
+
+def _locate_damage_effect(part: UObject) -> tuple[int, Any] | None:
+    try:
+        effects = part.InventoryAttributeEffects
+    except Exception as exc:
+        _error(f"could not read Fastball InventoryAttributeEffects: {exc}")
+        return None
+
+    for index, effect in enumerate(effects):
+        try:
+            if _path(effect.AttributeToModify) == FASTBALL_DAMAGE_ATTRIBUTE:
+                return index, effect
+        except Exception:
+            continue
+
+    _error("Fastball damage InventoryAttributeEffect was not found")
+    return None
+
+
+def _write_effect_scale(part: UObject, index: int, scale: float) -> bool:
+    try:
+        modifier_value = part.InventoryAttributeEffects[index].ModifierValue
+        modifier_value.BaseValueScale = scale
+        return True
+    except Exception as exc:
+        _error(f"could not write Fastball damage BaseValueScale: {exc}")
+        return False
+
+
+def _apply_damage_multiplier(raw_multiplier: Any | None = None) -> bool:
+    global _damage_effect_index
+    global _damage_original_scale
+    global _damage_owned_scale
+    global _damage_patch_active
+
+    multiplier = _validated(
+        damage_option.value if raw_multiplier is None else raw_multiplier,
+        DAMAGE_DEFAULT,
+        DAMAGE_MIN,
+        DAMAGE_MAX,
+        "Fastball Damage Multiplier",
+    )
+
+    part = _find_fastball_part()
+    if part is None:
+        return False
+
+    located = _locate_damage_effect(part)
+    if located is None:
+        return False
+
+    index, effect = located
+
+    try:
+        current_scale = float(effect.ModifierValue.BaseValueScale)
+    except Exception as exc:
+        _error(f"could not read Fastball damage BaseValueScale: {exc}")
+        return False
+
+    if not math.isfinite(current_scale):
+        _error(f"Fastball damage BaseValueScale is non-finite: {current_scale!r}")
+        return False
+
+    if not _damage_patch_active:
+        _damage_effect_index = index
+        _damage_original_scale = current_scale
+    elif _damage_effect_index != index:
+        _error("Fastball damage effect index changed while the mod was active")
+        return False
+
+    if _damage_original_scale is None:
+        _error("Fastball damage original BaseValueScale is unavailable")
+        return False
+
+    target_scale = _damage_original_scale * multiplier
+    if not math.isfinite(target_scale):
+        _error(f"calculated Fastball damage BaseValueScale is invalid: {target_scale!r}")
+        return False
+
+    if not _write_effect_scale(part, index, target_scale):
+        return False
+
+    _damage_owned_scale = target_scale
+    _damage_patch_active = True
+    return True
+
+
+def _restore_damage_patch() -> None:
+    global _damage_effect_index
+    global _damage_original_scale
+    global _damage_owned_scale
+    global _damage_patch_active
+
+    if not _damage_patch_active:
+        return
+
+    part = _damage_part
+    index = _damage_effect_index
+    original = _damage_original_scale
+    owned = _damage_owned_scale
+
+    if part is None or index is None or original is None or owned is None:
+        _damage_effect_index = None
+        _damage_original_scale = None
+        _damage_owned_scale = None
+        _damage_patch_active = False
+        return
+
+    try:
+        current = float(part.InventoryAttributeEffects[index].ModifierValue.BaseValueScale)
+    except Exception:
+        current = None
+
+    # Restore only if the value is still ours. Do not overwrite another mod
+    # which may have changed the same Fastball source after TrueFastball.
+    if current is not None and math.isclose(current, owned, rel_tol=1e-6, abs_tol=1e-6):
+        _write_effect_scale(part, index, original)
+
+    _damage_effect_index = None
+    _damage_original_scale = None
+    _damage_owned_scale = None
+    _damage_patch_active = False
+
+
+def _on_damage_option_changed(_option: SliderOption, new_value: float) -> None:
+    _apply_damage_multiplier(new_value)
+
+
+damage_option = SliderOption(
+    "damage_multiplier",
+    DAMAGE_DEFAULT,
+    DAMAGE_MIN,
+    DAMAGE_MAX,
+    0.01,
+    is_integer=False,
+    display_name="Fastball Damage Multiplier",
+    description=(
+        "Scales the Fastball's own damage attribute before inventory/UI stats are built, "
+        "so the item card and actual grenade damage use the same value. "
+        "Default: 2.56. Range: 1.00-4.00."
+    ),
+    on_change_while_enabled=_on_damage_option_changed,
+)
+
+throw_rate_option = SliderOption(
+    "throw_rate_scale",
+    RATE_DEFAULT,
+    RATE_MIN,
+    RATE_MAX,
+    0.1,
+    is_integer=False,
+    display_name="Throw Animation RateScale",
+    description=(
+        "Speed multiplier for the Fastball grenade throw animation. "
+        "Stock is 1.0. Default: 2.0. Range: 1.0-5.0."
+    ),
+)
+
+OPTIONS = (
+    damage_option,
+    throw_rate_option,
+)
+
+_anim_assets: list[tuple[UObject, float]] = []
+_anim_cache_ready = False
+_throw_patch_owner: UObject | None = None
+_throw_patch_active = False
 
 
 def _sanitize_loaded_settings(mod: Mod) -> None:
@@ -200,29 +368,10 @@ def _find_equipped_fastball(player: UObject) -> UObject | None:
         for part in parts:
             if part is None:
                 continue
-            try:
-                if str(part._path_name()) == FASTBALL_AUG:
-                    return item
-            except Exception:
-                continue
+            if _path(part) == FASTBALL_AUG:
+                return item
 
     return None
-
-
-def _get_fastball_delivery(projectile: UObject) -> UObject | None:
-    try:
-        delivery = projectile.DeliveryMethod
-    except Exception:
-        return None
-
-    if delivery is None:
-        return None
-
-    probe = f"{_class_name(delivery)} {_path(delivery)}".lower()
-    if FASTBALL_DELIVERY_TOKEN.lower() not in probe:
-        return None
-
-    return delivery
 
 
 def _cache_anim_assets() -> bool:
@@ -291,10 +440,7 @@ def _apply_throw_rate(owner: UObject) -> None:
     )
 
     if not _cache_anim_assets():
-        _error(
-            "grenade animation assets were not available at OnBegin; "
-            "damage patching can still proceed"
-        )
+        _error("grenade animation assets were not available at OnBegin")
         return
 
     changed = False
@@ -310,39 +456,12 @@ def _apply_throw_rate(owner: UObject) -> None:
         _throw_patch_active = True
 
 
-def _patch_damage(projectile: UObject) -> None:
-    multiplier = _validated(
-        damage_option.value,
-        DAMAGE_DEFAULT,
-        DAMAGE_MIN,
-        DAMAGE_MAX,
-        "Fastball Damage Multiplier",
-    )
-
-    try:
-        current_damage = float(projectile.GrenadeDamage)
-    except Exception as exc:
-        _error(f"could not read GrenadeDamage from {_path(projectile)}: {exc}")
-        return
-
-    if not math.isfinite(current_damage) or current_damage <= 0.0:
-        _error(
-            f"invalid GrenadeDamage {current_damage!r} on {_path(projectile)}"
-        )
-        return
-
-    # Multiply the already-computed runtime value rather than writing an
-    # absolute number so native level/Mayhem scaling remains intact.
-    try:
-        projectile.GrenadeDamage = current_damage * multiplier
-    except Exception as exc:
-        _error(f"could not patch Fastball damage on {_path(projectile)}: {exc}")
+def _on_enable() -> None:
+    _apply_damage_multiplier()
 
 
 def _on_disable() -> None:
-    global _pending_throw_owner
-
-    _pending_throw_owner = None
+    _restore_damage_patch()
     _restore_throw_patch()
 
 
@@ -353,10 +472,6 @@ def _grenade_throw_begin(
     _ret: Any,
     _func: BoundFunction,
 ) -> None:
-    global _pending_throw_owner
-
-    # Safety cleanup in case a previous grenade action ended abnormally.
-    _pending_throw_owner = None
     _restore_throw_patch()
 
     try:
@@ -367,7 +482,6 @@ def _grenade_throw_begin(
     if _find_equipped_fastball(player) is None:
         return
 
-    _pending_throw_owner = obj
     _apply_throw_rate(obj)
 
 
@@ -378,38 +492,8 @@ def _grenade_throw_end(
     _ret: Any,
     _func: BoundFunction,
 ) -> None:
-    global _pending_throw_owner
-
     if _throw_patch_owner is obj:
         _restore_throw_patch(owner=obj)
-
-    if _pending_throw_owner is obj:
-        _pending_throw_owner = None
-
-
-@hook("/Script/Engine.Actor:ReceiveBeginPlay", Type.POST)
-def _actor_begin_play(
-    obj: UObject,
-    _args: WrappedStruct,
-    _ret: Any,
-    _func: BoundFunction,
-) -> None:
-    global _pending_throw_owner
-
-    if _pending_throw_owner is None:
-        return
-
-    class_name = _class_name(obj).lower()
-    if "grenade" not in class_name and "proj_" not in class_name:
-        return
-
-    if _get_fastball_delivery(obj) is None:
-        return
-
-    # Consume the pending throw only after positively identifying the
-    # Fastball delivery object.
-    _pending_throw_owner = None
-    _patch_damage(obj)
 
 
 # Try to cache eagerly; OnBegin retries if the character assets are not loaded yet.
@@ -417,6 +501,7 @@ _cache_anim_assets()
 
 mod = build_mod(
     options=OPTIONS,
+    on_enable=_on_enable,
     on_disable=_on_disable,
 )
 
