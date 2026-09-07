@@ -76,7 +76,6 @@ Oak Mod Manager v1.11 уже включает Mods Base 1.12, BL3 Mod Menu 1.8, 
 - Fastball scope: изменение урона применяется только к фактическому Fastball projectile delivery.
 - Projectile behavior: штатные скорость, gravity и траектория Fastball из BL3 намеренно не изменяются.
 - Персонажи: изменение урона общее; текущее ускорение throw-animation использует протестированные assets **FL4K / Beastmaster**.
-- Кооператив: **Unknown** — сценарий, где мод установлен у клиента, но отсутствует у хоста, пока не проверен.
 - Лицензия: **GPL-3.0**
 
 ## Credits
