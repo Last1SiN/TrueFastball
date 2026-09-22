@@ -14,7 +14,7 @@ The mod multiplies the already-computed runtime `GrenadeDamage`, preserving the 
 - Preserves native level and Mayhem scaling.
 - Updates the Fastball Damage value shown on the item card to reflect the active multiplier.
 - Default **Throw Animation RateScale:** `2.0`.
-- Restores temporary throw-animation changes when the owning grenade action ends.
+- Restores temporary throw-animation changes when the owning grenade action ends without overwriting later external changes.
 - Does not modify Fastball projectile speed, gravity, upward velocity or trajectory.
 - Exposes both release settings through the in-game Mod Menu.
 - Validates manually edited or otherwise invalid saved settings before use.
