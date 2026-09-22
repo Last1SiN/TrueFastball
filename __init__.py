@@ -51,7 +51,7 @@ _anim_cache_ready = False
 _throw_anim_patch: list[tuple[UObject, float, float]] = []
 _throw_patch_owner: UObject | None = None
 
-# key -> {state, baseline_text, baseline_cmp, owned_text, owned_cmp}
+# key -> {baseline_text, baseline_cmp, owned_text, owned_cmp}
 _ui_records: dict[str, dict[str, Any]] = {}
 
 
@@ -186,7 +186,6 @@ def _apply_ui_to_state(state: UObject, multiplier: float) -> bool:
             _error(f"invalid cached Damage baseline {baseline_cmp!r} for {key}")
             return False
         record = {
-            "state": state,
             "baseline_text": baseline_text,
             "baseline_cmp": baseline_cmp,
             "owned_text": None,
@@ -194,8 +193,37 @@ def _apply_ui_to_state(state: UObject, multiplier: float) -> bool:
         }
         _ui_records[key] = record
     else:
-        # Refresh the UObject reference in case Python produced a newer wrapper.
-        record["state"] = state
+        # If this path now resolves to a fresh state or another mod changed the
+        # cached value after our write, re-baseline instead of carrying stale ownership.
+        try:
+            current_text = str(entry.ValueText)
+            current_cmp = float(entry.ComparisonValue)
+        except Exception:
+            return False
+
+        owned_text = record.get("owned_text")
+        owned_cmp = record.get("owned_cmp")
+        still_owned = (
+            owned_text is not None
+            and owned_cmp is not None
+            and current_text == str(owned_text)
+            and math.isclose(
+                current_cmp,
+                float(owned_cmp),
+                rel_tol=1e-6,
+                abs_tol=0.01,
+            )
+        )
+        if not still_owned:
+            if not math.isfinite(current_cmp) or current_cmp <= 0.0:
+                return False
+            record = {
+                "baseline_text": current_text,
+                "baseline_cmp": current_cmp,
+                "owned_text": None,
+                "owned_cmp": None,
+            }
+            _ui_records[key] = record
 
     baseline_cmp = float(record["baseline_cmp"])
     target_cmp = baseline_cmp * multiplier
@@ -215,59 +243,56 @@ def _scan_loaded_fastballs(multiplier: float) -> None:
         states = list(unrealsdk.find_all("InventoryBalanceStateComponent", exact=False))
     except Exception as exc:
         _error(f"balance-state scan failed: {exc}")
-        return 0, 0
+        return
 
     for state in states:
         if _is_fastball_state(state):
             _apply_ui_to_state(state, multiplier)
 
 
-def _restore_all_ui() -> tuple[int, int]:
-    restored = 0
-    skipped = 0
-    for key, record in list(_ui_records.items()):
-        state = record.get("state")
-        if state is None:
-            skipped += 1
+def _restore_all_ui() -> None:
+    try:
+        states = list(unrealsdk.find_all("InventoryBalanceStateComponent", exact=False))
+    except Exception:
+        _ui_records.clear()
+        return
+
+    for state in states:
+        key = _state_key(state)
+        record = _ui_records.get(key)
+        if record is None:
             continue
 
         entry = _find_damage_entry(state)
         if entry is None:
-            skipped += 1
             continue
 
-        # Ownership guard: restore only if the current cached value is still ours.
-        # If another mod changed it afterwards, leave that value alone.
         try:
             current_text = str(entry.ValueText)
             current_cmp = float(entry.ComparisonValue)
         except Exception:
-            skipped += 1
             continue
 
         owned_text = record.get("owned_text")
         owned_cmp = record.get("owned_cmp")
         if owned_text is None or owned_cmp is None:
-            skipped += 1
             continue
 
         if current_text != str(owned_text) or not math.isclose(
-            current_cmp, float(owned_cmp), rel_tol=1e-6, abs_tol=0.01
+            current_cmp,
+            float(owned_cmp),
+            rel_tol=1e-6,
+            abs_tol=0.01,
         ):
-            skipped += 1
             continue
 
-        if _write_damage_entry(
+        _write_damage_entry(
             state,
             str(record["baseline_text"]),
             float(record["baseline_cmp"]),
-        ):
-            restored += 1
-        else:
-            skipped += 1
+        )
 
     _ui_records.clear()
-    return restored, skipped
 
 
 def _current_damage_multiplier() -> float:
