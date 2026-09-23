@@ -46,12 +46,12 @@ RATE_MIN = 1.0
 RATE_MAX = 5.0
 
 _pending_throw_owner: UObject | None = None
-_anim_assets: list[tuple[UObject, float]] = []
+_anim_assets: list[UObject] = []
 _anim_cache_ready = False
+_throw_anim_patch: list[tuple[UObject, float, float]] = []
 _throw_patch_owner: UObject | None = None
-_throw_patch_active = False
 
-# key -> {state, baseline_text, baseline_cmp, owned_text, owned_cmp}
+# key -> {baseline_text, baseline_cmp, owned_text, owned_cmp}
 _ui_records: dict[str, dict[str, Any]] = {}
 
 
@@ -164,7 +164,7 @@ def _write_damage_entry(state: UObject, value_text: str, comparison_value: float
     )
 
 
-def _apply_ui_to_state(state: UObject, multiplier: float, *, reason: str) -> bool:
+def _apply_ui_to_state(state: UObject, multiplier: float) -> bool:
     if not _is_fastball_state(state):
         return False
 
@@ -186,7 +186,6 @@ def _apply_ui_to_state(state: UObject, multiplier: float, *, reason: str) -> boo
             _error(f"invalid cached Damage baseline {baseline_cmp!r} for {key}")
             return False
         record = {
-            "state": state,
             "baseline_text": baseline_text,
             "baseline_cmp": baseline_cmp,
             "owned_text": None,
@@ -194,8 +193,37 @@ def _apply_ui_to_state(state: UObject, multiplier: float, *, reason: str) -> boo
         }
         _ui_records[key] = record
     else:
-        # Refresh the UObject reference in case Python produced a newer wrapper.
-        record["state"] = state
+        # If this path now resolves to a fresh state or another mod changed the
+        # cached value after our write, re-baseline instead of carrying stale ownership.
+        try:
+            current_text = str(entry.ValueText)
+            current_cmp = float(entry.ComparisonValue)
+        except Exception:
+            return False
+
+        owned_text = record.get("owned_text")
+        owned_cmp = record.get("owned_cmp")
+        still_owned = (
+            owned_text is not None
+            and owned_cmp is not None
+            and current_text == str(owned_text)
+            and math.isclose(
+                current_cmp,
+                float(owned_cmp),
+                rel_tol=1e-6,
+                abs_tol=0.01,
+            )
+        )
+        if not still_owned:
+            if not math.isfinite(current_cmp) or current_cmp <= 0.0:
+                return False
+            record = {
+                "baseline_text": current_text,
+                "baseline_cmp": current_cmp,
+                "owned_text": None,
+                "owned_cmp": None,
+            }
+            _ui_records[key] = record
 
     baseline_cmp = float(record["baseline_cmp"])
     target_cmp = baseline_cmp * multiplier
@@ -210,70 +238,61 @@ def _apply_ui_to_state(state: UObject, multiplier: float, *, reason: str) -> boo
     return True
 
 
-def _scan_loaded_fastballs(multiplier: float, *, reason: str) -> tuple[int, int]:
+def _scan_loaded_fastballs(multiplier: float) -> None:
     try:
         states = list(unrealsdk.find_all("InventoryBalanceStateComponent", exact=False))
     except Exception as exc:
         _error(f"balance-state scan failed: {exc}")
-        return 0, 0
+        return
 
-    found = 0
-    patched = 0
     for state in states:
-        if not _is_fastball_state(state):
-            continue
-        found += 1
-        if _apply_ui_to_state(state, multiplier, reason=reason):
-            patched += 1
-    return found, patched
+        if _is_fastball_state(state):
+            _apply_ui_to_state(state, multiplier)
 
 
-def _restore_all_ui() -> tuple[int, int]:
-    restored = 0
-    skipped = 0
-    for key, record in list(_ui_records.items()):
-        state = record.get("state")
-        if state is None:
-            skipped += 1
+def _restore_all_ui() -> None:
+    try:
+        states = list(unrealsdk.find_all("InventoryBalanceStateComponent", exact=False))
+    except Exception:
+        _ui_records.clear()
+        return
+
+    for state in states:
+        key = _state_key(state)
+        record = _ui_records.get(key)
+        if record is None:
             continue
 
         entry = _find_damage_entry(state)
         if entry is None:
-            skipped += 1
             continue
 
-        # Ownership guard: restore only if the current cached value is still ours.
-        # If another mod changed it afterwards, leave that value alone.
         try:
             current_text = str(entry.ValueText)
             current_cmp = float(entry.ComparisonValue)
         except Exception:
-            skipped += 1
             continue
 
         owned_text = record.get("owned_text")
         owned_cmp = record.get("owned_cmp")
         if owned_text is None or owned_cmp is None:
-            skipped += 1
             continue
 
         if current_text != str(owned_text) or not math.isclose(
-            current_cmp, float(owned_cmp), rel_tol=1e-6, abs_tol=0.01
+            current_cmp,
+            float(owned_cmp),
+            rel_tol=1e-6,
+            abs_tol=0.01,
         ):
-            skipped += 1
             continue
 
-        if _write_damage_entry(
+        _write_damage_entry(
             state,
             str(record["baseline_text"]),
             float(record["baseline_cmp"]),
-        ):
-            restored += 1
-        else:
-            skipped += 1
+        )
 
     _ui_records.clear()
-    return restored, skipped
 
 
 def _current_damage_multiplier() -> float:
@@ -294,7 +313,7 @@ def _on_damage_option_changed(_option: SliderOption, new_value: float) -> None:
         DAMAGE_MAX,
         "Fastball Damage Multiplier",
     )
-    _scan_loaded_fastballs(multiplier, reason="slider")
+    _scan_loaded_fastballs(multiplier)
 
 
 damage_option = SliderOption(
@@ -389,7 +408,7 @@ def _cache_anim_assets() -> bool:
     global _anim_cache_ready, _anim_assets
     if _anim_cache_ready and _anim_assets:
         return True
-    found: list[tuple[UObject, float]] = []
+    found: list[UObject] = []
     try:
         loaded = list(unrealsdk.find_all("AnimSequenceBase", exact=False))
     except Exception as exc:
@@ -398,11 +417,7 @@ def _cache_anim_assets() -> bool:
     for asset in loaded:
         if _path(asset) not in TARGET_ASSETS:
             continue
-        try:
-            original = float(asset.RateScale)
-        except Exception:
-            continue
-        found.append((asset, original))
+        found.append(asset)
     if not found:
         return False
     _anim_assets = found
@@ -411,23 +426,35 @@ def _cache_anim_assets() -> bool:
 
 
 def _restore_throw_patch(owner: UObject | None = None) -> None:
-    global _throw_patch_owner, _throw_patch_active
-    if not _throw_patch_active:
+    global _throw_patch_owner, _throw_anim_patch
+
+    if _throw_patch_owner is None:
         return
+
     if owner is not None and _throw_patch_owner is not owner:
         return
-    for asset, original in _anim_assets:
+
+    for asset, original, owned in _throw_anim_patch:
         try:
-            asset.RateScale = original
+            current = float(asset.RateScale)
         except Exception:
-            pass
+            continue
+
+        if math.isclose(current, owned, rel_tol=1e-6, abs_tol=1e-6):
+            try:
+                asset.RateScale = original
+            except Exception:
+                pass
+
+    _throw_anim_patch = []
     _throw_patch_owner = None
-    _throw_patch_active = False
 
 
 def _apply_throw_rate(owner: UObject) -> None:
-    global _throw_patch_owner, _throw_patch_active
+    global _throw_patch_owner, _throw_anim_patch
+
     _restore_throw_patch()
+
     rate = _validated(
         throw_rate_option.value,
         RATE_DEFAULT,
@@ -438,16 +465,19 @@ def _apply_throw_rate(owner: UObject) -> None:
     if not _cache_anim_assets():
         _error("grenade animation assets were not available at OnBegin")
         return
-    changed = False
-    for asset, _original in _anim_assets:
+
+    patch: list[tuple[UObject, float, float]] = []
+    for asset in _anim_assets:
         try:
+            original = float(asset.RateScale)
             asset.RateScale = rate
-            changed = True
+            patch.append((asset, original, rate))
         except Exception:
             pass
-    if changed:
+
+    if patch:
+        _throw_anim_patch = patch
         _throw_patch_owner = owner
-        _throw_patch_active = True
 
 
 def _patch_runtime_damage(projectile: UObject) -> None:
@@ -468,7 +498,7 @@ def _patch_runtime_damage(projectile: UObject) -> None:
 
 def _on_enable() -> None:
     multiplier = _current_damage_multiplier()
-    _scan_loaded_fastballs(multiplier, reason="enable")
+    _scan_loaded_fastballs(multiplier)
 
 
 def _on_disable() -> None:
@@ -541,7 +571,7 @@ def _inventory_state_begin_play(
     # Covers Fastballs created/dropped after the mod was enabled. If UIStats are
     # not populated yet, OnRep_ReplicatedUIStats and card compare hooks retry.
     if _is_fastball_state(obj):
-        _apply_ui_to_state(obj, _current_damage_multiplier(), reason="new-state")
+        _apply_ui_to_state(obj, _current_damage_multiplier())
 
 
 @hook("/Script/GbxInventory.InventoryBalanceStateComponent:OnRep_ReplicatedUIStats", Type.POST)
@@ -552,7 +582,7 @@ def _inventory_ui_stats_replicated(
     _func: BoundFunction,
 ) -> None:
     if _is_fastball_state(obj):
-        _apply_ui_to_state(obj, _current_damage_multiplier(), reason="ui-rep")
+        _apply_ui_to_state(obj, _current_damage_multiplier())
 
 
 @hook("/Script/OakGame.GFxItemCardAbbreviated:OnCompareToEquippedItem", Type.PRE)
@@ -571,7 +601,7 @@ def _item_card_compare(
         except Exception:
             continue
         if state is not None and _is_fastball_state(state):
-            _apply_ui_to_state(state, multiplier, reason="card-compare")
+            _apply_ui_to_state(state, multiplier)
 
 
 _cache_anim_assets()
