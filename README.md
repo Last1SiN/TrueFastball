@@ -2,23 +2,21 @@
 
 [English](README.md) | [Русский](README_RU.md)
 
-TrueFastball is a Borderlands 2-style Fastball overhaul for Borderlands 3: it increases Fastball damage and makes the throw feel more responsive while deliberately keeping Borderlands 3's native Fastball projectile speed and trajectory.
+TrueFastball makes the Fastball feel like the heavy hitter it used to be.
 
-The mod multiplies the already-computed runtime `GrenadeDamage`, preserving the game's native level and Mayhem scaling, and temporarily accelerates the tested grenade throw animation only during a Fastball throw.
+It boosts Fastball damage and speeds up the throw, but leaves Borderlands 3's projectile speed and arc alone. The result is a harder-hitting, snappier Fastball without turning it into a different grenade.
+
+Both damage and throw speed can be adjusted from the Mod Menu.
 
 ## Features
 
-- The damage multiplier applies only to Fastball grenades.
-- Default **Fastball Damage Multiplier:** `2.56`.
-- Multiplies runtime `GrenadeDamage` instead of writing an absolute damage value.
-- Preserves native level and Mayhem scaling.
-- Updates the Fastball Damage value shown on the item card to reflect the active multiplier.
-- Default **Throw Animation RateScale:** `2.0`.
-- Restores temporary throw-animation changes when the owning grenade action ends without overwriting later external changes.
-- Does not modify Fastball projectile speed, gravity, upward velocity or trajectory.
-- Exposes both release settings through the in-game Mod Menu.
-- Validates manually edited or otherwise invalid saved settings before use.
-- Normal gameplay logging is limited to errors.
+- More Fastball damage; default multiplier is **2.56x**.
+- Faster throw animation; default speed is **2.0x**.
+- Keeps Borderlands 3's normal Fastball projectile speed and trajectory.
+- Damage still scales normally with level and Mayhem.
+- The item card reflects the active damage multiplier.
+- Both settings are available in the Mod Menu.
+- Temporary animation changes are restored when the throw ends.
 
 ## Configuration
 
