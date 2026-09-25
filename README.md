@@ -46,8 +46,7 @@ Use the [official BL3 SDK / Oak installation guide](https://bl-sdk.github.io/oak
 1. Install or update BL3 PythonSDK / Oak using the official guide above.
 2. Download `TrueFastball.sdkmod` from [GitHub Releases](https://github.com/Last1SiN/TrueFastball/releases/latest).
 3. With Borderlands 3 closed, copy the `.sdkmod` file intact to `Borderlands 3\sdk_mods\`. Do not extract the `.sdkmod` itself.
-4. Remove old Fastball test/probe builds so only one Fastball runtime mod can load.
-5. Start the game, open **MODS -> TrueFastball**, enable the mod and configure the two values under **Options** if desired.
+4. Start the game, open **MODS -> TrueFastball**, enable the mod and configure the two values under **Options** if desired.
 
 To update TrueFastball, replace the existing `.sdkmod` with the newer file and restart the game.
 
