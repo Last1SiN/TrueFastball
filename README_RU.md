@@ -46,8 +46,7 @@ TrueFastball возвращает Fastball ощущение действител
 1. Установите или обновите BL3 PythonSDK / Oak по официальной инструкции выше.
 2. Скачайте `TrueFastball.sdkmod` из [GitHub Releases](https://github.com/Last1SiN/TrueFastball/releases/latest).
 3. При полностью закрытой Borderlands 3 скопируйте `.sdkmod` целиком в `Borderlands 3\sdk_mods\`. Сам `.sdkmod` распаковывать не нужно.
-4. Удалите старые Fastball test/probe-сборки, чтобы одновременно загружалась только одна runtime-версия мода для Fastball.
-5. Запустите игру, откройте **MODS -> TrueFastball**, включите мод и при необходимости настройте оба параметра через **Options**.
+4. Запустите игру, откройте **MODS -> TrueFastball**, включите мод и при необходимости настройте оба параметра через **Options**.
 
 Для обновления замените существующий `.sdkmod` новым файлом и перезапустите игру.
 
